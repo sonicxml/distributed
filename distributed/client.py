@@ -69,7 +69,7 @@ from .security import Security
 from .sizeof import sizeof
 from .threadpoolexecutor import rejoin
 from .worker import get_client, get_worker, secede
-from .diagnostics.plugin import UploadFile, WorkerPlugin
+from .diagnostics.plugin import UploadDir, UploadFile, WorkerPlugin
 from .utils import (
     All,
     sync,
@@ -3084,6 +3084,34 @@ class Client:
         return self.register_worker_plugin(
             UploadFile(filename),
             name=filename + str(uuid.uuid4()),
+        )
+
+    def upload_dir(self, dir_path, remote_path=""):
+        """Upload local directory to workers
+
+        This sends a local directory up to all worker nodes. This directory is placed
+        into a temporary directory on Python's system path.
+
+        If no remote path is specified, the contents of the directory are directly
+        added to Python's system path. In this case, it would work similarly to calling
+        `upload_file` for all files in the directory.
+
+        Parameters
+        ----------
+        dir_path: string
+            Path to local directory to send to workers
+        remote_path: string
+            The path prefix under which to store the copied files on the workers
+
+        Examples
+        --------
+        >>> client.upload_dir('mylibrary', remote_path='src/mypkg')  # doctest: +SKIP
+        >>> from src.mypkg.foo import myfunc  # doctest: +SKIP
+        >>> L = client.map(myfunc, seq)  # doctest: +SKIP
+        """
+        return self.register_worker_plugin(
+            UploadDir(dir_path, remote_path=remote_path),
+            name=dir_path + str(uuid.uuid4()),
         )
 
     async def _rebalance(self, futures=None, workers=None):

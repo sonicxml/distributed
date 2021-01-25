@@ -973,8 +973,8 @@ def open_port(host=""):
     return port
 
 
-def import_file(path):
-    """ Loads modules for a file (.py, .zip, .egg) """
+def import_file(path, is_dir=False, remote_path=""):
+    """ Loads modules for a file (.py, .zip, .egg) or a directory """
     directory, filename = os.path.split(path)
     name, ext = os.path.splitext(filename)
     names_to_import = []
@@ -988,14 +988,21 @@ def import_file(path):
         cache_file = cache_from_source(path)
         with suppress(OSError):
             os.remove(cache_file)
-    if ext in (".egg", ".zip", ".pyz"):
+    if ext in (".egg", ".zip", ".pyz") or is_dir:
         if path not in sys.path:
             sys.path.insert(0, path)
-        names = (mod_info.name for mod_info in pkgutil.iter_modules([path]))
+        names = [mod_info.name for mod_info in pkgutil.iter_modules([path])]
+        if is_dir and remote_path:
+            # Because iter_modules won't search recursively
+            # Convert remote path into Python module (e.g. src/mypkg -> src.mypkg)
+            # Then find imported modules starting with that initial package
+            prefix = remote_path.replace("/", ".").replace("\\", ".").split(".")[0]
+            prefix += "."  # Make sure prefix is the entire initial package name
+            names += [m for m in sys.modules if m.startswith(prefix)]
         names_to_import.extend(names)
 
     loaded = []
-    if not names_to_import:
+    if not names_to_import and not remote_path:
         logger.warning("Found nothing to import from %s", filename)
     else:
         importlib.invalidate_caches()
